@@ -19,6 +19,7 @@ import com.bplead.cad.bean.io.Document;
 
 import priv.lee.cad.bean.HandleResult;
 import priv.lee.cad.util.Assert;
+import priv.lee.cad.util.ObjectUtils;
 import wt.doc.WTDocument;
 import wt.fc.QueryResult;
 import wt.folder.Folder;
@@ -79,11 +80,11 @@ public class ServerUtils implements RemoteAccess, Serializable {
 			result = HandleResult.toErrorResult(e);
 			e.printStackTrace();
 		} finally {
-			if (tran != null) {
+			if (!ObjectUtils.isEmpty(tran)) {
 				tran.rollback();
 			}
 
-			if (result == null) {
+			if (ObjectUtils.isEmpty(result)) {
 				result = HandleResult.toUnExpectedResult();
 			}
 		}
@@ -105,11 +106,11 @@ public class ServerUtils implements RemoteAccess, Serializable {
 			result = HandleResult.toErrorResult(e);
 			e.printStackTrace();
 		} finally {
-			if (tran != null) {
+			if (!ObjectUtils.isEmpty(tran)) {
 				tran.rollback();
 			}
 
-			if (result == null) {
+			if (ObjectUtils.isEmpty(result)) {
 				result = HandleResult.toUnExpectedResult();
 			}
 		}
@@ -118,7 +119,7 @@ public class ServerUtils implements RemoteAccess, Serializable {
 
 	private static List<SimpleFolder> findFolders(Folder folder, WTContainerRef ref) throws WTException {
 		List<SimpleFolder> folders = new ArrayList<SimpleFolder>();
-		if (folder == null || ref == null) {
+		if (ObjectUtils.isEmpty(folder) || ObjectUtils.isEmpty(ref)) {
 			return folders;
 		}
 
@@ -137,7 +138,7 @@ public class ServerUtils implements RemoteAccess, Serializable {
 	}
 
 	public static HandleResult<SimpleFolder> getSimpleFolders(SimplePdmLinkProduct product) {
-		if (product == null) {
+		if (ObjectUtils.isEmpty(product)) {
 			return HandleResult.toErrorResult(null, "Product is required");
 		}
 
@@ -154,7 +155,7 @@ public class ServerUtils implements RemoteAccess, Serializable {
 			result = HandleResult.toErrorResult(e);
 			e.printStackTrace();
 		} finally {
-			if (result == null) {
+			if (ObjectUtils.isEmpty(result)) {
 				result = HandleResult.toUnExpectedResult();
 			}
 		}
@@ -183,7 +184,7 @@ public class ServerUtils implements RemoteAccess, Serializable {
 			result = HandleResult.toErrorResult(e);
 			e.printStackTrace();
 		} finally {
-			if (result == null) {
+			if (ObjectUtils.isEmpty(result)) {
 				result = HandleResult.toUnExpectedResult();
 			}
 		}
@@ -201,7 +202,7 @@ public class ServerUtils implements RemoteAccess, Serializable {
 			result = HandleResult.toErrorResult(e);
 			e.printStackTrace();
 		} finally {
-			if (result == null) {
+			if (ObjectUtils.isEmpty(result)) {
 				result = HandleResult.toUnExpectedResult();
 			}
 		}

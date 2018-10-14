@@ -4,6 +4,8 @@ public class CustomPrompt {
 
 	public static final String ACCESS_DENIED = "ACCESS_DENIED";
 
+	public static final String EXIST_DOC = "EXIST_DOC";
+
 	public static final String INSTANCE_NUMBER_ERROR = "INSTANCE_NUMBER_ERROR";
 
 	public static final String MISS_CONFIGURATION = "MISS_CONFIGURATION";

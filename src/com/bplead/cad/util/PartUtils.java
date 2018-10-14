@@ -14,6 +14,7 @@ import com.bplead.cad.bean.io.MPMPart;
 import com.bplead.cad.constant.CustomPrompt;
 
 import priv.lee.cad.util.Assert;
+import priv.lee.cad.util.ObjectUtils;
 import priv.lee.cad.util.StringUtils;
 import wt.fc.Persistable;
 import wt.fc.PersistenceHelper;
@@ -101,7 +102,7 @@ public class PartUtils implements RemoteAccess {
 	}
 
 	private static String getManufactorPage(List<MPMPart> mpmParts) {
-		if (mpmParts == null) {
+		if (ObjectUtils.isEmpty(mpmParts)) {
 			return null;
 		}
 

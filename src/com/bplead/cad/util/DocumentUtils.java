@@ -29,6 +29,7 @@ import com.bplead.cad.bean.io.Document;
 import com.bplead.cad.constant.CustomPrompt;
 
 import priv.lee.cad.util.Assert;
+import priv.lee.cad.util.ObjectUtils;
 import priv.lee.cad.util.StringUtils;
 import wt.access.AccessControlHelper;
 import wt.access.AccessPermission;
@@ -65,6 +66,81 @@ import wt.util.WTPropertyVetoException;
 
 public class DocumentUtils implements RemoteAccess {
 
+	static class CheckoutAndDownloadTask implements Callable<Boolean> {
+
+		private static final String OID = "oid";
+		private static final String PROPERTIES = ".properties";
+		private static final String TIME = "time";
+		private static final String USER = "user";
+		private WTDocument document;
+		private File repository;
+
+		public CheckoutAndDownloadTask(WTDocument document, File repository) {
+			this.document = document;
+			this.repository = new File(repository, document.getNumber());
+		}
+
+		private void addProperties() {
+			try {
+				File file = new File(repository, document.getNumber() + PROPERTIES);
+				if (!file.exists()) {
+					file.createNewFile();
+				}
+
+				Properties props = new Properties();
+				props.put(OID, document.toString());
+				props.put(TIME, new Date().toString());
+				props.put(USER, SessionHelper.getPrincipal().toString());
+				props.store(new FileOutputStream(file), null);
+			} catch (WTException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+		@Override
+		public Boolean call() throws Exception {
+			try {
+				document = CommonUtils.checkout(document, null, WTDocument.class);
+
+				// SessionMgr.setAuthenticatedPrincipal(user.getAuthenticationName());
+				download(ContentRoleType.PRIMARY);
+
+				download(ContentRoleType.SECONDARY);
+
+				addProperties();
+
+				return true;
+			} catch (WTException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			return false;
+		}
+
+		private void download(ApplicationData application) throws WTException, IOException {
+			File roleRepo = new File(repository, application.getRole().getDisplay());
+			if (!roleRepo.exists()) {
+				roleRepo.mkdirs();
+			}
+
+			String appRepo = roleRepo.getPath() + File.separator + application.getFileName();
+			logger.info("WTDocument[" + CommonUtils.getPersistableOid(document) + "],role[" + application.getRole()
+					+ "],repository[" + appRepo + "]");
+			ContentServerHelper.service.writeContentStream(application, appRepo);
+		}
+
+		private void download(ContentRoleType role) throws WTException, IOException {
+			QueryResult qr = ContentHelper.service.getContentsByRole(document, role);
+			while (qr.hasMoreElements()) {
+				ApplicationData application = (ApplicationData) qr.nextElement();
+				download(application);
+			}
+		}
+	}
+
 	private static Map<String, String> docAttributes = new HashMap<String, String>();
 	public static final int INSTANCE_NUM_LENGTH = 2000;
 	public static final String INSTANCE_NUM_SEPERATOR = ",";
@@ -74,6 +150,7 @@ public class DocumentUtils implements RemoteAccess {
 	private static final String NAME = "NAME";
 	private static final String NUMBER = "WTDOCUMENTNUMBER";
 	private static final String ZIP = ".zip";
+
 	static {
 		initDesignDocAttributes();
 		initManufactorDocAttributes();
@@ -310,7 +387,7 @@ public class DocumentUtils implements RemoteAccess {
 			try {
 				field.setAccessible(true);
 				Object object = field.get(serializable);
-				if (object == null) {
+				if (ObjectUtils.isEmpty(object)) {
 					continue;
 				}
 
@@ -397,9 +474,8 @@ public class DocumentUtils implements RemoteAccess {
 		Assert.notNull(document, "WTDocument does not exist");
 
 		try {
-			Assert.isTrue(AccessControlHelper.manager.hasAccess(document, AccessPermission.DOWNLOAD),
-					CommonUtils.toLocalizedMessage(CustomPrompt.ACCESS_DENIED, document.getNumber(),
-							AccessPermission.DOWNLOAD));
+			Assert.isTrue(AccessControlHelper.manager.hasAccess(document, AccessPermission.DOWNLOAD), CommonUtils
+					.toLocalizedMessage(CustomPrompt.ACCESS_DENIED, document.getNumber(), AccessPermission.DOWNLOAD));
 		} catch (WTException e) {
 			e.printStackTrace();
 		}
@@ -409,80 +485,5 @@ public class DocumentUtils implements RemoteAccess {
 		File zipFile = new File(shareDirectory, repository.getName() + ZIP);
 		CommonUtils.zip(repository, zipFile);
 		return zipFile;
-	}
-
-	static class CheckoutAndDownloadTask implements Callable<Boolean> {
-
-		private static final String OID = "oid";
-		private static final String PROPERTIES = ".properties";
-		private static final String TIME = "time";
-		private static final String USER = "user";
-		private WTDocument document;
-		private File repository;
-
-		public CheckoutAndDownloadTask(WTDocument document, File repository) {
-			this.document = document;
-			this.repository = new File(repository, document.getNumber());
-		}
-
-		private void addProperties() {
-			try {
-				File file = new File(repository, document.getNumber() + PROPERTIES);
-				if (!file.exists()) {
-					file.createNewFile();
-				}
-
-				Properties props = new Properties();
-				props.put(OID, document.toString());
-				props.put(TIME, new Date().toString());
-				props.put(USER, SessionHelper.getPrincipal().toString());
-				props.store(new FileOutputStream(file), null);
-			} catch (WTException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-
-		@Override
-		public Boolean call() throws Exception {
-			try {
-				document = CommonUtils.checkout(document, null, WTDocument.class);
-
-				// SessionMgr.setAuthenticatedPrincipal(user.getAuthenticationName());
-				download(ContentRoleType.PRIMARY);
-
-				download(ContentRoleType.SECONDARY);
-
-				addProperties();
-
-				return true;
-			} catch (WTException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			return false;
-		}
-
-		private void download(ApplicationData application) throws WTException, IOException {
-			File roleRepo = new File(repository, application.getRole().getDisplay());
-			if (!roleRepo.exists()) {
-				roleRepo.mkdirs();
-			}
-
-			String appRepo = roleRepo.getPath() + File.separator + application.getFileName();
-			logger.info("WTDocument[" + CommonUtils.getPersistableOid(document) + "],role[" + application.getRole()
-					+ "],repository[" + appRepo + "]");
-			ContentServerHelper.service.writeContentStream(application, appRepo);
-		}
-
-		private void download(ContentRoleType role) throws WTException, IOException {
-			QueryResult qr = ContentHelper.service.getContentsByRole(document, role);
-			while (qr.hasMoreElements()) {
-				ApplicationData application = (ApplicationData) qr.nextElement();
-				download(application);
-			}
-		}
 	}
 }

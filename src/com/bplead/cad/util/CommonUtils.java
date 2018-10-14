@@ -11,22 +11,28 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
 
 import com.bplead.cad.constant.CustomPrompt;
+import com.ptc.core.foundation.container.common.FdnWTContainerHelper;
 
 import priv.lee.cad.util.Assert;
+import priv.lee.cad.util.ObjectUtils;
+import priv.lee.cad.util.StringUtils;
 import wt.access.AccessControlHelper;
 import wt.access.AccessPermission;
 import wt.doc.WTDocument;
 import wt.enterprise.Master;
+import wt.epm.EPMDocument;
 import wt.fc.Persistable;
 import wt.fc.PersistenceHelper;
 import wt.fc.QueryResult;
 import wt.fc.ReferenceFactory;
+import wt.fc.WTObject;
 import wt.fc.WTReference;
 import wt.folder.Folder;
 import wt.part.WTPart;
 import wt.pom.PersistenceException;
 import wt.query.QueryException;
 import wt.query.QuerySpec;
+import wt.type.TypedUtility;
 import wt.util.WTException;
 import wt.util.WTMessage;
 import wt.util.WTProperties;
@@ -40,6 +46,7 @@ public class CommonUtils {
 
 	private static final int BUFFER_SIZE = 2 * 1024;
 	private static final String SHARE_DIR = "wt.home.share.dir";
+	private static final String TYPE_PRIFIX = "WCTYPE|";
 
 	@SuppressWarnings("unchecked")
 	public static <T extends Workable> T checkin(Workable workable, String note, Class<T> clatt)
@@ -106,7 +113,7 @@ public class CommonUtils {
 			in.close();
 		} else {
 			File[] listFiles = sourceFile.listFiles();
-			if (listFiles == null || listFiles.length == 0) {
+			if (ObjectUtils.isEmpty(listFiles)) {
 				zos.putNextEntry(new ZipEntry(name + File.separator));
 			} else {
 				for (File file : listFiles) {
@@ -145,7 +152,7 @@ public class CommonUtils {
 
 		try {
 			WTReference ref = new ReferenceFactory().getReference(oid);
-			if (ref != null) {
+			if (!ObjectUtils.isEmpty(ref)) {
 				return (T) ref.getObject();
 			}
 		} catch (WTException e) {
@@ -168,6 +175,23 @@ public class CommonUtils {
 			file.mkdirs();
 		}
 		return file;
+	}
+
+	public static String getTypeIdentifier(WTObject object) {
+		Assert.notNull(object, "WTObject is required");
+
+		String type = null;
+		if (object instanceof WTDocument || object instanceof EPMDocument) {
+			type = TypedUtility.getTypeIdentifier(object).getTypename().trim();
+		} else {
+			type = FdnWTContainerHelper.toTypeIdentifier(TypedUtility.getTypeIdentifier(object).getTypeInternalName())
+					.getTypename().trim();
+		}
+
+		if (StringUtils.hasText(type) && StringUtils.startsWithIgnoreCase(type, TYPE_PRIFIX)) {
+			type = TYPE_PRIFIX + type;
+		}
+		return type;
 	}
 
 	public static String getUUID32() {
@@ -211,7 +235,7 @@ public class CommonUtils {
 			e.printStackTrace();
 		} finally {
 			try {
-				if (zos != null) {
+				if (!ObjectUtils.isEmpty(zos)) {
 					zos.close();
 				}
 				FileUtils.deleteDirectory(repository);

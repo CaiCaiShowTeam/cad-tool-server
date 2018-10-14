@@ -43,3 +43,7 @@ INSTANCE_NUMBER_ERROR.comment=Error to instance numbers
 ACCESS_DENIED.value=您尚未获取对[{0}]对象的{1}权限，请联系系统管理员！
 ACCESS_DENIED.constant=ACCESS_DENIED
 ACCESS_DENIED.comment=Error to instance numbers
+
+EXIST_DOC.value=部件[{0}]下已存在产品厂工艺文档或内协厂工艺文档，无法重复创建，请确认后提交！
+EXIST_DOC.constant=EXIST_DOC
+EXIST_DOC.comment=Exist document
