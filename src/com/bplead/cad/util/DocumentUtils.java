@@ -73,6 +73,7 @@ public class DocumentUtils implements RemoteAccess {
 		private static final String TIME = "time";
 		private static final String USER = "user";
 		private WTDocument document;
+		private String primaryName;
 		private File repository;
 
 		public CheckoutAndDownloadTask(WTDocument document, File repository) {
@@ -82,7 +83,7 @@ public class DocumentUtils implements RemoteAccess {
 
 		private void addProperties() {
 			try {
-				File file = new File(repository, document.getNumber() + PROPERTIES);
+				File file = new File(getRepository(ContentRoleType.PRIMARY), primaryName + PROPERTIES);
 				if (!file.exists()) {
 					file.createNewFile();
 				}
@@ -121,12 +122,14 @@ public class DocumentUtils implements RemoteAccess {
 		}
 
 		private void download(ApplicationData application) throws WTException, IOException {
-			File roleRepo = new File(repository, application.getRole().getDisplay());
-			if (!roleRepo.exists()) {
-				roleRepo.mkdirs();
+			ContentRoleType role = application.getRole();
+			String name = application.getFileName();
+			if (ContentRoleType.PRIMARY.equals(role)) {
+				primaryName = name;
 			}
 
-			String appRepo = roleRepo.getPath() + File.separator + application.getFileName();
+			File roleRepo = getRepository(role);
+			String appRepo = roleRepo.getPath() + File.separator + name;
 			logger.info("WTDocument[" + CommonUtils.getPersistableOid(document) + "],role[" + application.getRole()
 					+ "],repository[" + appRepo + "]");
 			ContentServerHelper.service.writeContentStream(application, appRepo);
@@ -139,6 +142,14 @@ public class DocumentUtils implements RemoteAccess {
 				download(application);
 			}
 		}
+
+		private File getRepository(ContentRoleType role) {
+			File roleRepo = new File(repository, role.getDisplay());
+			if (!roleRepo.exists()) {
+				roleRepo.mkdirs();
+			}
+			return roleRepo;
+		}
 	}
 
 	private static Map<String, String> docAttributes = new HashMap<String, String>();
@@ -150,7 +161,6 @@ public class DocumentUtils implements RemoteAccess {
 	private static final String NAME = "NAME";
 	private static final String NUMBER = "WTDOCUMENTNUMBER";
 	private static final String ZIP = ".zip";
-
 	static {
 		initDesignDocAttributes();
 		initManufactorDocAttributes();
@@ -265,6 +275,14 @@ public class DocumentUtils implements RemoteAccess {
 
 	public static List<SimpleDocument> search(String number, String name) {
 		Assert.isTrue(StringUtils.hasText(number) || StringUtils.hasText(name), "Number or name is requried");
+
+		if (StringUtils.hasText(number)) {
+			number = number.trim();
+		}
+		
+		if (StringUtils.hasText(name)) {
+			name = name.trim();
+		}
 
 		List<SimpleDocument> docs = new ArrayList<SimpleDocument>();
 		boolean enforced = SessionServerHelper.manager.setAccessEnforced(false);

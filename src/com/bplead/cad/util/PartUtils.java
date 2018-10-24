@@ -177,7 +177,10 @@ public class PartUtils implements RemoteAccess {
 
 		List<WTPart> parts = null;
 		if (cad.getDetailNum().equals(cad.getNumber())) {
-			parts = Arrays.asList(getWTPart(cad.getJdeNum()));
+			WTPart part = getWTPart(cad.getJdeNum());
+			Assert.notNull(part, CommonUtils.toLocalizedMessage(CustomPrompt.WTPART_NOT_EXIST, cad.getJdeNum()));
+
+			parts = Arrays.asList(part);
 		} else {
 			parts = searchInstances(cad.getDetailNum());
 		}
@@ -265,11 +268,21 @@ public class PartUtils implements RemoteAccess {
 		return instanceNumbers;
 	}
 
-	public static List<WTPart> update(CAPP capp, boolean updated) throws WTPropertyVetoException {
-		List<MPMPart> mpmParts = capp.getMpmParts();
-		Assert.notEmpty(mpmParts, CommonUtils.toLocalizedMessage(CustomPrompt.MISS_CONFIGURATION, List.class));
-
+	public static List<WTPart> update(CAPP capp, boolean updated) throws WTPropertyVetoException, WTException {
 		List<WTPart> list = new ArrayList<WTPart>();
+
+		List<MPMPart> mpmParts = capp.getMpmParts();
+		if (mpmParts == null) {
+			WTPart part = getWTPart(capp.getJdeNum());
+			Assert.notNull(part, CommonUtils.toLocalizedMessage(CustomPrompt.WTPART_NOT_EXIST, capp.getJdeNum()));
+
+			if (updated) {
+				part = updateIBAs(part, capp);
+			}
+			list.add(part);
+			return list;
+		}
+
 		for (MPMPart mpmPart : mpmParts) {
 			String jdeNum = mpmPart.getJdeNum();
 			Assert.notNull(jdeNum, CommonUtils.toLocalizedMessage(CustomPrompt.MISS_JDENUM));
@@ -289,12 +302,17 @@ public class PartUtils implements RemoteAccess {
 		return list;
 	}
 
-	private static WTPart updateIBAs(WTPart part, CAPP capp) throws WTPropertyVetoException {
+	private static WTPart updateIBAs(WTPart part, CAPP capp) throws WTPropertyVetoException, WTException {
 		String value = getManufactorPage(capp.getMpmParts());
 		if (StringUtils.hasText(value)) {
+			WTPart copy = CommonUtils.checkout(part, null, WTPart.class);
+			
 			IBAUtils utils = new IBAUtils(part);
 			utils.setIBAValue(MANUFACTOR_PAGE, value);
-			part = utils.updateAttributeContainer(part, WTPart.class);
+			copy = utils.updateAttributeContainer(copy, WTPart.class);
+			copy = CommonUtils.modify(copy, WTPart.class);
+			
+			part = CommonUtils.checkin(copy, null, WTPart.class);
 		}
 		return part;
 	}

@@ -16,9 +16,13 @@ import wt.fc.QueryResult;
 import wt.fc.collections.WTHashSet;
 import wt.fc.collections.WTSet;
 import wt.method.RemoteAccess;
+import wt.org.WTPrincipal;
 import wt.part.WTPart;
 import wt.part.WTPartDescribeLink;
 import wt.part.WTPartHelper;
+import wt.session.SessionContext;
+import wt.session.SessionHelper;
+import wt.session.SessionServerHelper;
 import wt.util.WTException;
 import wt.util.WTPropertyVetoException;
 import wt.vc.config.LatestConfigSpec;
@@ -111,39 +115,54 @@ public class PartDocumentUtils implements RemoteAccess {
 			throws WTException, WTPropertyVetoException {
 		Assert.notNull(doc, CommonUtils.toLocalizedMessage(CustomPrompt.MISS_CONFIGURATION, WTDocument.class));
 
+		if (parts == null) {
+			return true;
+		}
+
 		ValidateUtils.validateExistManufactorDoc(doc, parts);
 
 		if (ObjectUtils.isEmpty(parts)) {
 			return true;
 		}
 
-		// ~ delete old WTPartDescribeLink
-		List<WTPart> currentDescribedParts = findDescribedParts(doc);
-		if (!ObjectUtils.isEmpty(currentDescribedParts) && !currentDescribedParts.isEmpty()) {
-			currentDescribedParts.removeAll(parts);
-			for (WTPart part : currentDescribedParts) {
-				if (!part.isLatestIteration()) {
-					continue;
+		// ~ set administrator context
+		boolean enforced = SessionServerHelper.manager.setAccessEnforced(false);
+		WTPrincipal currentUser = null;
+		try {
+			WTPrincipal adminUser = SessionHelper.manager.getAdministrator();
+			currentUser = SessionContext.setEffectivePrincipal(adminUser);
+
+			// ~ delete old WTPartDescribeLink
+			List<WTPart> currentDescribedParts = findDescribedParts(doc);
+			if (!ObjectUtils.isEmpty(currentDescribedParts) && !currentDescribedParts.isEmpty()) {
+				currentDescribedParts.removeAll(parts);
+				for (WTPart part : currentDescribedParts) {
+					if (!part.isLatestIteration()) {
+						continue;
+					}
+
+					WTPart copy = CommonUtils.checkout(part, null, WTPart.class);
+
+					PersistenceHelper.manager.delete(findDescribeLinks(copy, doc));
+
+					CommonUtils.checkin(copy, null, WTPart.class);
 				}
-
-				WTPart copy = CommonUtils.checkout(part, null, WTPart.class);
-
-				PersistenceHelper.manager.delete(findDescribeLinks(copy, doc));
-
-				CommonUtils.checkin(copy, null, WTPart.class);
 			}
-		}
 
-		// ~ insert new WTPartDescribeLink
-		for (WTPart part : parts) {
-			if (findDescribeLinks(part, doc).isEmpty()) {
-				WTPart copy = CommonUtils.checkout(part, null, WTPart.class);
+			// ~ insert new WTPartDescribeLink
+			for (WTPart part : parts) {
+				if (findDescribeLinks(part, doc).isEmpty()) {
+					WTPart copy = CommonUtils.checkout(part, null, WTPart.class);
 
-				WTPartDescribeLink wtpartdescribelink = WTPartDescribeLink.newWTPartDescribeLink(copy, doc);
-				PersistenceServerHelper.manager.insert(wtpartdescribelink);
+					WTPartDescribeLink wtpartdescribelink = WTPartDescribeLink.newWTPartDescribeLink(copy, doc);
+					PersistenceServerHelper.manager.insert(wtpartdescribelink);
 
-				CommonUtils.checkin(copy, null, WTPart.class);
+					CommonUtils.checkin(copy, null, WTPart.class);
+				}
 			}
+		} finally {
+			SessionContext.setEffectivePrincipal(currentUser);
+			SessionServerHelper.manager.setAccessEnforced(enforced);
 		}
 		return true;
 	}
