@@ -279,7 +279,7 @@ public class DocumentUtils implements RemoteAccess {
 		if (StringUtils.hasText(number)) {
 			number = number.trim();
 		}
-		
+
 		if (StringUtils.hasText(name)) {
 			name = name.trim();
 		}
@@ -468,6 +468,10 @@ public class DocumentUtils implements RemoteAccess {
 		Assert.notNull(document, "Document is required");
 
 		WTDocument doc = CommonUtils.getPersistable(document.getOid(), WTDocument.class);
+		if (!doc.isLatestIteration()) {
+			doc = CommonUtils.getLatestObject((WTDocumentMaster) doc.getMaster(), WTDocument.class);
+		}
+
 		// rename
 		WTDocumentHelper.service.changeWTDocumentMasterIdentity((WTDocumentMaster) doc.getMaster(), document.getName(),
 				doc.getNumber(), doc.getOrganization());
